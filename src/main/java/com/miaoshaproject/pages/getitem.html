@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link href="../template/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+    <link href="../template/components.min.css" rel="stylesheet" type="text/css"/>
+    <link href="../template/login.css" rel="stylesheet" type="text/css"/>
+    <style>
+        .shabi {
+            display: none;
+        }
+    </style>
+
+    <script src="../template/jquery.min.js" type="text/javascript"></script>
+
+</head>
+<body class="login">
+<div class="content">
+    <h3 class="form-title">商品详情</h3>
+
+    <div id="promoStartDateContainer" class="form-group shabi">
+        <label style="color: red" class="control-label"></label>
+        <div>
+            <label style="color: red" class="control-label"id="promoStartDate"/>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label">商品名</label>
+        <div>
+            <label class="control-label" id="title"/>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label">商品描述</label>
+        <div>
+            <label class="control-label" id="description"/>
+        </div>
+    </div>
+
+    <div id="normal" class="form-group">
+        <label class="control-label">价格</label>
+        <div>
+            <label class="control-label"id="price"/>
+        </div>
+    </div>
+
+    <div id="promoPriceContainer" class="form-group shabi">
+        <label style="color: red" class="control-label">秒杀价格</label>
+        <div>
+            <label style="color: red" class="control-label"id="promoPrice"/>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label">图片</label>
+        <div>
+            <img src="" style="width: 200px;height: auto" id="imgUrl">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label">库存</label>
+        <div>
+            <label class="control-label" id="stock"/>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label">销量</label>
+        <div>
+            <label class="control-label" id="sales"/>
+        </div>
+    </div>
+    <div class="form-actions">
+        <button class="btn blue" id="createorder" type="submit">下单</button>
+    </div>
+</div>
+</body>
+
+<script>
+    function getParam(paramName) {
+        paramValue = "", isFound = !1;
+        if (this.location.search.indexOf("?") == 0 && this.location.search.indexOf("=") > 1) {
+            arrSource = unescape(this.location.search).substring(1, this.location.search.length).split("&"), i = 0;
+            while (i < arrSource.length && !isFound) arrSource[i].indexOf("=") > 0 && arrSource[i].split("=")[0].toLowerCase() == paramName.toLowerCase() && (paramValue = arrSource[i].split("=")[1], isFound = !0), i++
+        }
+        return paramValue == "" && (paramValue = null), paramValue
+    }
+
+    var g_itemVO = {};
+    jQuery(document).ready(function () {
+        $("#createorder").on("click",function () {
+            $.ajax({
+                type:"POST",
+                contentType:"application/x-www-form-urlencoded",
+                url:"http://localhost:8090/order/createorder",
+                data:{
+                    "itemId":g_itemVO.id,
+                    "amount":1,
+                    "promoId":g_itemVO.promoId
+                },
+                xhrFields:{withCredentials:true},
+                success:function (data) {
+                    if(data.status == "success") {
+                        alert("下单成功!");
+                    }else{
+                        alert("下单失败，原因为" + data.data.errMsg);
+                        console.log(data.data.errCode);
+                        if(data.data.errCode === 20003) {
+                            console.log(1)
+                            $(location).attr('href', 'login.html');
+                        }
+                    }
+                },
+                error:function (data) {
+                    alert("下单失败，原因为" + data.responseText);
+                }
+            });
+        })
+        $.ajax({
+            type:"GET",
+            url:"http://localhost:8090/item/get",
+            data:{
+                "id":getParam("id"),
+            },
+            xhrFields:{withCredentials:true},
+            success:function (data) {
+                if(data.status == "success") {
+                    g_itemVO = data.data;
+                    reloadDom();
+                    setInterval(reloadDom,1000);
+                }else{
+                    alert("获取信息失败，原因为" + data.data.errMsg);
+                }
+            },
+            error:function (data) {
+                alert("获取信息失败，原因为" + data.responseText);
+            }
+        });
+    });
+
+    function reloadDom() {
+        $("#title").text(g_itemVO.title);
+        $("#description").text(g_itemVO.description);
+        $("#stock").text(g_itemVO.stock);
+        $("#price").text(g_itemVO.price);
+        $("#imgUrl").attr("src",g_itemVO.imgUrl);
+        $("#sales").text(g_itemVO.sales);
+        if(g_itemVO.promoStatus == 1) {
+            $(".shabi").css('display','block');
+
+
+            var startTime = g_itemVO.startDate.replace(new RegExp("-","gm"),"/");
+            startTime = (new Date(startTime)).getTime();
+            var nowTime = Date.parse(new Date());
+            var delta = (startTime - nowTime)/1000;
+            if(delta<=0) {
+                g_itemVO.promoStatus = 2;
+                reloadDom();
+            }
+
+            $("#promoStartDate").html("秒杀活动将于:" + g_itemVO.startDate + "开始</br> 倒计时："+ delta +"秒");
+            $("#promoPrice").text(g_itemVO.promoPrice);
+            $("#createorder").attr("disabled",true);
+        }else if(g_itemVO.promoStatus == 2){
+            $(".shabi").css('display','block');
+            $("#promoStartDate").text("秒杀活动正在进行中");
+            $("#promoPrice").text(g_itemVO.promoPrice);
+            $("#createorder").attr("disabled",false);
+            $("#normal").css('display','none');
+        }else{
+            $("#promoStartDate").text("秒杀活动已经结束");
+            $("#promoPrice").text("秒杀活动已经结束");
+            $("#normal").css('display','block');
+        }
+    }
+
+</script>
+</html>
